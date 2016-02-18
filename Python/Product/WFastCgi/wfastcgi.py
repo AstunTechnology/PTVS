@@ -14,9 +14,6 @@
 # See the Apache Version 2.0 License for specific language governing
 # permissions and limitations under the License.
 
-__author__ = "Microsoft Corporation <ptvshelp@microsoft.com>"
-__version__ = "3.0.0.0"
-
 from __future__ import absolute_import, print_function, with_statement
 import ctypes
 import datetime
@@ -797,18 +794,24 @@ def main():
                 # SCRIPT_NAME + PATH_INFO is supposed to be the full path
                 # (http://www.python.org/dev/peps/pep-0333/) but by default
                 # (http://msdn.microsoft.com/en-us/library/ms525840(v=vs.90).aspx)
-                # IIS is sending us the full URL in PATH_INFO, so we need to
-                # clear the script name here
-                if 'AllowPathInfoForScriptMappings' not in os.environ:
-                    record.params['SCRIPT_NAME'] = ''
-                    record.params['wsgi.script_name'] = wsgi_encode('')
+                # IIS is sending us the full URL in PATH_INFO
 
                 # correct SCRIPT_NAME and PATH_INFO if we are told what our SCRIPT_NAME should be
                 if 'SCRIPT_NAME' in os.environ and record.params['PATH_INFO'].lower().startswith(os.environ['SCRIPT_NAME'].lower()):
                     record.params['SCRIPT_NAME'] = os.environ['SCRIPT_NAME']
                     record.params['PATH_INFO'] = record.params['PATH_INFO'][len(record.params['SCRIPT_NAME']):]
-                    record.params['wsgi.script_name'] = wsgi_encode(record.params['SCRIPT_NAME'])
-                    record.params['wsgi.path_info'] = wsgi_encode(record.params['PATH_INFO'])
+                elif record.params.get('APPL_MD_PATH') and record.params['SCRIPT_NAME'] and (record.params['SCRIPT_NAME'] == record.params['PATH_INFO']):
+                    __, __, script_name = record.params['APPL_MD_PATH'].partition('/ROOT')
+                    path_info = record.params['PATH_INFO'][len(script_name):]         
+                    record.params['PATH_INFO'] = path_info
+                    record.params['SCRIPT_NAME'] = script_name
+                elif 'AllowPathInfoForScriptMappings' not in os.environ:
+                    record.params['SCRIPT_NAME'] = ''
+                    
+                record.params['wsgi.script_name'] = wsgi_encode(record.params['SCRIPT_NAME'])
+                record.params['wsgi.path_info'] = wsgi_encode(record.params['PATH_INFO'])
+                    
+                
 
                 # Send each part of the response to FCGI_STDOUT.
                 # Exceptions raised in the handler will be logged by the context
